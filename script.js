@@ -23,7 +23,17 @@ const CUSTOM = {
   search: g('<circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/>'),
   robot: g('<rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 13h.01M15 13h.01M3 13v3M21 13v3"/>'),
   layers: g('<path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5"/>'),
-  activity: g('<path d="M3 12h4l3-8 4 16 3-8h4"/>')
+  activity: g('<path d="M3 12h4l3-8 4 16 3-8h4"/>'),
+  text: g('<path d="M4 6h16M4 12h10M4 18h14"/>'),
+  chat: g('<path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z"/>'),
+  cpu: g('<rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>'),
+  refresh: g('<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/>'),
+  pin: g('<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'),
+  phone: g('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>'),
+  bell: g('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0"/>'),
+  check: g('<path d="m5 12 5 5 9-10"/>'),
+  flask: g('<path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/>'),
+  coin: g('<circle cx="12" cy="12" r="9"/><path d="M14.5 9a2.5 2.5 0 0 0-2.5-1.5c-1.4 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2A2.5 2.5 0 0 1 9.5 15M12 6v1.5M12 16.5V18"/>')
 };
 const iconSrc = k => CUSTOM[k] ? 'data:image/svg+xml,' + encodeURIComponent(CUSTOM[k]) : SI + k + '.svg';
 function addIcons(root = document) {
@@ -56,19 +66,45 @@ $('#themeBtn').addEventListener('click', () => {
   document.dispatchEvent(new Event('themechange'));
 });
 
-/* ---------- typed headline ---------- */
+/* ---------- rotating headline (words fade in place, so nothing on the page moves) ---------- */
 (() => {
-  const words = ['agentic AI systems', 'RAG pipelines', 'fast generative inference'];
-  const el = $('#typed'); let w = 0, c = 0, del = false;
-  if (reduced) { el.textContent = words[0]; return; }
-  (function tick() {
-    const word = words[w];
-    el.textContent = word.slice(0, c);
-    if (!del && c === word.length) { del = true; return setTimeout(tick, 1600); }
-    if (del && c === 0) { del = false; w = (w + 1) % words.length; }
-    c += del ? -1 : 1;
-    setTimeout(tick, del ? 28 : 65);
-  })();
+  const words = [...document.querySelectorAll('#rotor > span')];
+  if (reduced || words.length < 2) return;
+  let i = 0;
+  setInterval(() => {
+    if (document.hidden) return;
+    words[i].classList.remove('on'); i = (i + 1) % words.length; words[i].classList.add('on');
+  }, 2800);
+})();
+
+/* ---------- scroll progress bar ---------- */
+(() => {
+  const bar = $('#progress'); let tick = false;
+  const update = () => {
+    const h = document.documentElement.scrollHeight - innerHeight;
+    bar.style.transform = `scaleX(${h > 0 ? Math.min(1, scrollY / h) : 0})`; tick = false;
+  };
+  addEventListener('scroll', () => { if (!tick) { tick = true; requestAnimationFrame(update); } }, { passive: true });
+  update();
+})();
+
+/* ---------- tech marquee: duplicate the list once so it loops seamlessly ---------- */
+(() => {
+  const track = $('#track'); if (!track || reduced) return;
+  const copy = track.firstElementChild.cloneNode(true); copy.setAttribute('aria-hidden', 'true');
+  track.appendChild(copy);
+})();
+
+/* ---------- "read more" on long paragraphs, phones only ---------- */
+(() => {
+  if (!matchMedia('(max-width: 600px)').matches) return;
+  document.querySelectorAll('.project .lede, .project .expl, .chapter .lede, .chapter .expl').forEach(p => {
+    if (p.textContent.length < 170) return;
+    p.classList.add('rm-clamp');
+    const b = document.createElement('button'); b.className = 'rm-btn'; b.type = 'button'; b.textContent = 'Read more';
+    b.addEventListener('click', () => { const open = p.classList.toggle('rm-clamp'); b.textContent = open ? 'Read more' : 'Show less'; });
+    p.after(b);
+  });
 })();
 
 /* ---------- certificate count (from data) ---------- */
@@ -81,7 +117,7 @@ const io = new IntersectionObserver(es => es.forEach(e => {
   e.target.classList.add('in'); io.unobserve(e.target);
 }), { threshold: .08 });
 const reveal = el => { el.classList.add('reveal'); io.observe(el); };
-document.querySelectorAll('.card, .about-grid').forEach(reveal);
+document.querySelectorAll('.card, .about-grid, .chapter').forEach(reveal);
 document.querySelectorAll('[data-count]').forEach(el => {
   const end = +el.dataset.count, suf = el.dataset.suffix || '';
   const o = new IntersectionObserver(([e]) => {
@@ -107,7 +143,10 @@ function rgba(hex, a) {
     const n = Math.min(110, Math.round(W * H / 14000));
     pts = Array.from({ length: n }, () => ({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .35, vy: (Math.random() - .5) * .35 }));
   };
-  fit(); addEventListener('resize', fit);
+  /* only rebuild on a real width change: phones fire "resize" whenever the address bar hides while scrolling */
+  let lastW = 0;
+  const refit = () => { if (cv.clientWidth !== lastW) { lastW = cv.clientWidth; fit(); } };
+  fit(); lastW = cv.clientWidth; addEventListener('resize', refit);
   cv.parentElement.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; });
   cv.parentElement.addEventListener('mouseleave', () => mouse.x = mouse.y = -999);
   let a = css('--accent'), b = css('--accent2');
@@ -133,6 +172,131 @@ function rgba(hex, a) {
       ctx.fillStyle = rgba(a, .8); ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, 7); ctx.fill();
     }
   })();
+})();
+
+/* ---------- interactive steppers (iSolution, Bitknox, hackathons) ---------- */
+(() => {
+  /* every caption below is taken from the project descriptions on this page.
+     The Apigee policies are generic textbook examples with placeholder values, nothing from a real client. */
+  const tags = (label, list, extra = {}) => ({ type: 'tags', label, tags: list.map(x => typeof x === 'string' ? { t: x } : { t: x[0], i: x[1] }), ...extra });
+  const SIMS = {
+    isolution: {
+      btn: '▶ Send a request', finalAll: true, lines: 6,
+      intro: { t: 'Request path', d: 'Watch a request travel through an Apigee proxy, or tap any step to see what happens there.',
+        panel: { type: 'code', file: 'policy.xml', tool: 'Apigee', code: '<!-- Tap a step to see its policy -->' } },
+      steps: [
+        { t: 'Client app', d: 'A client application sends a request to the API, carrying an access token.',
+          panel: { type: 'code', file: 'request.http', tool: 'Apigee', code: 'GET /v1/resource HTTP/1.1\nHost: api.example.com\nAuthorization: Bearer <access token>' } },
+        { t: 'OAuth', d: 'Before anything else, the proxy checks the access token. A missing or invalid token stops here.',
+          panel: { type: 'code', file: 'Verify-Access-Token.xml', tool: 'Apigee', code: '<OAuthV2 name="Verify-Access-Token">\n  <Operation>VerifyAccessToken</Operation>\n</OAuthV2>' } },
+        { t: 'Security policies', d: 'Security policies inspect the request, for example limiting payload size and nesting, before it can reach the backend.',
+          panel: { type: 'code', file: 'JSON-Threat.xml', tool: 'Apigee', code: '<JSONThreatProtection name="JSON-Threat">\n  <ArrayElementCount>20</ArrayElementCount>\n  <ContainerDepth>5</ContainerDepth>\n  <ObjectEntryCount>50</ObjectEntryCount>\n  <Source>request</Source>\n</JSONThreatProtection>' } },
+        { t: 'Transform & map', d: 'Transformation and mapping policies reshape the message into the format the backend system expects.',
+          panel: { type: 'code', file: 'Convert-Payload.xml', tool: 'Apigee', code: '<XMLToJSON name="Convert-Payload">\n  <Source>request</Source>\n  <OutputVariable>request</OutputVariable>\n</XMLToJSON>' } },
+        { t: 'Backend system', d: 'The proxy forwards the clean request to the bank or government service, which processes it and replies.',
+          panel: { type: 'code', file: 'default.xml', tool: 'Apigee', code: '<TargetEndpoint name="default">\n  <HTTPTargetConnection>\n    <URL>https://backend.example.com</URL>\n  </HTTPTargetConnection>\n</TargetEndpoint>' } },
+        { t: 'Response returned', d: 'The reply passes back through the proxy, is mapped to the format the client expects, and is returned.',
+          panel: { type: 'code', file: 'response.http', tool: 'Apigee', code: 'HTTP/1.1 200 OK\nContent-Type: application/json' } }
+      ]
+    },
+    sd: {
+      btn: '▶ Follow a prompt',
+      intro: { t: 'Stable Diffusion on Intel CPUs', d: 'Follow a prompt through the pipeline, or tap any step.', panel: tags('Pipeline', [], { hint: 'Tap a step, or press the button to play it through.' }) },
+      steps: [
+        { t: 'Text prompt', d: 'The user describes the image they want.', panel: tags('Input', [['Plain-text prompt', 'text']]) },
+        { t: 'Stable Diffusion', d: 'Text-to-image pipeline built with Diffusers.', panel: tags('Model', [['Stable Diffusion', 'image'], ['Diffusers', 'huggingface']]) },
+        { t: 'OpenVINO / ONNX', d: 'Model optimized to run on Intel CPUs.', panel: tags('Optimization', [['OpenVINO', 'intel'], ['ONNX', 'onnx'], ['Intel CPUs', 'cpu']]) },
+        { t: 'Latent caching', d: 'Intermediate results reused for low-latency inference.', panel: tags('Speed', [['Latent caching', 'refresh'], ['Low-latency inference', 'activity']]) }
+      ]
+    },
+    rag: {
+      btn: '▶ Ask a question',
+      intro: { t: 'RAG chatbot', d: 'Follow a question through the chatbot, or tap any step.', panel: tags('Pipeline', [], { hint: 'Tap a step, or press the button to play it through.' }) },
+      steps: [
+        { t: 'Embed', d: 'Content is turned into vectors.', panel: tags('Embeddings', [['Content as vectors', 'layers']]) },
+        { t: 'PGVector on PostgreSQL', d: 'Vectors stored and searched inside Postgres.', panel: tags('Storage', [['PGVector', 'postgresql'], ['PostgreSQL', 'postgresql']]) },
+        { t: 'Retrieve', d: 'Closest matches pulled in for each question.', panel: tags('Retrieval', [['Closest matches', 'search']]) },
+        { t: 'Chatbot answers', d: 'The LLM replies using the retrieved context.', panel: tags('Answer', [['LLM', 'chat'], ['Retrieved context', 'database']]) }
+      ]
+    },
+    dispatch: {
+      btn: '▶ Play it through',
+      intro: { t: 'From call to alert', d: 'Follow an emergency call through the system, or tap any step.', panel: tags('Incident', [], { hint: 'Tap a step, or press the button to play it through.' }) },
+      steps: [
+        { t: 'Call comes in', d: 'A caller reports an incident, in any language or dialect.', panel: tags('Incoming call', ['Any language', 'Any dialect'], { q: 'Saddar mobile market mein aag lagi hai' }) },
+        { t: 'Agents analyse it', d: 'Sentiment, location and a confidence score. Matching social posts raise the confidence.', panel: tags('Agents', [['Sentiment', 'agents'], ['Location', 'pin'], ['Confidence score', 'activity'], ['Social posts', 'search']]) },
+        { t: 'Dispatcher decides', d: 'The dispatcher gets a recommended plan to approve or reject. Weather and blocked roads re-plan it live.', panel: tags('Response plan', [['Approve or reject', 'check'], 'Weather', 'Blocked roads', ['Live re-plan', 'refresh']]) },
+        { t: 'Right people alerted', d: 'Only citizens near the incident are notified. False alarms go to a dormant vault, not the bin.', panel: tags('Alerts', [['Nearby citizens only', 'pin'], ['False alarms to a dormant vault', 'database']]) }
+      ]
+    },
+    chem: {
+      btn: '▶ Match some waste',
+      intro: { t: 'From waste to match', d: 'Follow a waste description through the engine, or tap any step.', panel: tags('Match', [], { hint: 'Tap a step, or press the button to play it through.' }) },
+      steps: [
+        { t: 'Describe the waste', d: 'An unstructured, natural-language waste manifest.', panel: tags('Input', [['Plain language', 'text'], 'Unstructured manifest']) },
+        { t: 'Embed & search', d: 'An embedding model plus semantic search in Qdrant.', panel: tags('Search', [['gemini-embedding-001', 'googlegemini'], '3072-d vectors', ['Qdrant', 'qdrant']]) },
+        { t: 'AI chemical engineer', d: 'Gemini 2.5 Flash explains why the chemistry works.', panel: tags('Explanation', [['Gemini 2.5 Flash', 'googlegemini'], ['Neutralization chemistry', 'flask']]) },
+        { t: 'See the profit', d: 'Monthly ROI calculated in PKR.', panel: tags('Result', [['Monthly ROI', 'coin'], 'PKR', ['Cloud Run', 'googlecloud']]) }
+      ]
+    }
+  };
+
+  /* tiny syntax colouring: tags, attribute names, strings */
+  const hl = src => esc(src).split('\n').map(l => l.startsWith('&lt;!--') ? `<span class="c">${l}</span>`
+    : l.replace(/(&lt;\/?)([\w-]+)/g, '$1<span class="t">$2</span>').replace(/(\s)([\w-]+)=(&quot;.*?&quot;)/g, '$1<span class="a">$2</span>=<span class="s">$3</span>')).join('\n');
+  const renderPanel = (p, lines) => p.type === 'code'
+    ? `<div class="code"><div class="code-bar mono"><span>${esc(p.file)}</span><span>${esc(p.tool || '')}</span></div><pre class="mono" style="--lines:${lines}">${hl(p.code)}</pre></div>`
+    : `<div class="tp"><div class="tp-bar mono"><span>${esc(p.label || '')}</span></div><div class="tp-body">${p.q ? `<p class="tp-q">“${esc(p.q)}”</p>` : ''}${p.tags.map(x => `<span class="tp-chip"${x.i ? ` data-i="${x.i}"` : ''}>${esc(x.t)}</span>`).join('')}${p.hint ? `<span class="tp-hint">${esc(p.hint)}</span>` : ''}</div></div>`;
+
+  function initSim(root, cfg) {
+    if (!cfg) return;
+    const lis = [...root.querySelectorAll('.sim-track li')], btn = root.querySelector('.sim-btn');
+    const cap = root.querySelector('.sim-cap'), capT = cap.querySelector('h4'), capD = cap.querySelector('p'), panel = root.querySelector('.sim-panel');
+    const steps = cfg.steps, last = steps.length - 1;
+    let cur = -1, timer = null;
+
+    const paint = s => { capT.textContent = s.t; capD.textContent = s.d; panel.innerHTML = renderPanel(s.panel, cfg.lines || 6); addIcons(panel); };
+    function show(i) {
+      cur = i;
+      lis.forEach((li, k) => { li.classList.toggle('on', k === i); li.classList.toggle('done', (cfg.finalAll && i === last) || k < i); });
+      paint(steps[i]);
+    }
+    /* reserve room for the tallest caption and panel, so nothing below ever shifts */
+    function fit() {
+      const keep = cur < 0 ? cfg.intro : steps[cur];
+      cap.style.minHeight = '0'; panel.style.minHeight = '0';
+      let hc = 0, hp = 0;
+      [cfg.intro, ...steps].forEach(s => { paint(s); hc = Math.max(hc, cap.offsetHeight); hp = Math.max(hp, panel.offsetHeight); });
+      paint(keep); cap.style.minHeight = hc + 'px'; panel.style.minHeight = hp + 'px';
+    }
+    const stop = () => { clearInterval(timer); timer = null; };
+    function run() {
+      stop(); let i = 0; show(0); btn.textContent = 'Playing…';
+      timer = setInterval(() => {
+        i++; show(i);
+        if (i === last) { stop(); btn.textContent = '↻ Replay'; }
+      }, 1800);
+    }
+
+    let fitW = innerWidth; fit();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    addEventListener('resize', () => { if (innerWidth !== fitW) { fitW = innerWidth; fit(); } });
+
+    if (reduced) {
+      btn.textContent = 'Next step ›';
+      btn.addEventListener('click', () => show((cur + 1) % steps.length));
+    } else {
+      btn.addEventListener('click', run);
+      /* play once, the first time it scrolls into view */
+      new IntersectionObserver(([e], o) => { if (e.isIntersecting) { o.disconnect(); run(); } }, { threshold: .4 }).observe(root);
+    }
+    lis.forEach((li, k) => {
+      const go = () => { stop(); show(k); btn.textContent = reduced ? 'Next step ›' : '↻ Replay'; };
+      li.addEventListener('click', go);
+      li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+  }
+  document.querySelectorAll('.sim').forEach(root => initSim(root, SIMS[root.dataset.sim]));
 })();
 
 /* ---------- Dispatch video fallback ---------- */
@@ -180,24 +344,17 @@ function rgba(hex, a) {
 
 /* ---------- certificates (data from certs.js) ---------- */
 (() => {
-  const grid = $('#certGrid'), lb = $('#lightbox');
+  const grid = $('#certGrid');
   const safe = u => /^https?:\/\//i.test(u) ? u : '';
   (window.CERTS || []).forEach(g => {
     const c = document.createElement('div'); c.className = 'card cert-group';
-    c.innerHTML = `<h4>${esc(g.group)}</h4>` + g.items.map((it, i) => {
+    c.innerHTML = `<h4>${esc(g.group)}</h4>` + g.items.map(it => {
       const url = safe(it.url);
       return `<div class="cert-row"><div class="cert-name">${esc(it.n)}${it.d ? `<small>${esc(it.d)}</small>` : ''}</div>
-        <div class="cert-act">${it.img ? `<button class="chip-btn" data-img="${esc(it.img)}" data-cap="${esc(it.n)}">View</button>` : ''}${url ? `<a class="chip-btn solid" href="${esc(url)}" target="_blank" rel="noopener">Verify ↗</a>` : ''}</div></div>`;
+        <div class="cert-act">${url ? `<a class="chip-btn solid" href="${esc(url)}" target="_blank" rel="noopener">Verify ↗</a>` : ''}</div></div>`;
     }).join('');
     grid.appendChild(c); reveal(c);
   });
-  grid.addEventListener('click', e => {
-    const b = e.target.closest('[data-img]'); if (!b) return;
-    lb.querySelector('img').src = b.dataset.img; lb.querySelector('img').alt = b.dataset.cap; lb.querySelector('p').textContent = b.dataset.cap; lb.classList.remove('hidden');
-  });
-  const close = () => lb.classList.add('hidden');
-  lb.addEventListener('click', e => { if (e.target !== lb.querySelector('img')) close(); });
-  addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 })();
 
 /* ---------- university projects ---------- */
